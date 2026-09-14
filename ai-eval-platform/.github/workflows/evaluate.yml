@@ -1,0 +1,35 @@
+# CI/CD skeleton — spec §18. Deliberately minimal for the 21.09 platform
+# deadline; hardening this into a real PR-blocking gate (posting the
+# "AI Evaluation Failed" comment, comparing against the last merged baseline
+# automatically, etc.) is the 29.09 CI/CD milestone's job.
+name: AI Evaluation
+
+on:
+  pull_request:
+    paths:
+      - "app/**"
+      - "config/**"
+      - "datasets/**"
+
+jobs:
+  evaluate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -e ".[dev]"
+
+      - name: Run unit + integration tests
+        run: pytest -q
+
+      # TODO (29.09 milestone): run the real evaluation experiment(s) here,
+      # e.g. `python -m app.cli run-experiment config/example.yaml`, then
+      # compare against the last baseline stored in experiments/ and fail
+      # the job (exit non-zero) on regression per spec §17-18.
+      - name: Run evaluation against golden dataset (placeholder)
+        run: echo "TODO: wire up experiment run + regression gate here"

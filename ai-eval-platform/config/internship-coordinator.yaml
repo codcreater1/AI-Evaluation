@@ -1,0 +1,43 @@
+# Real evaluator set for the Internship Coordinator (PROJECT_PLAN.md §4.7).
+# Its decision (status + findings) is deterministic by design, so the
+# correctness evaluators are deterministic too; the only LLM judge is
+# advisory_quality, which checks the system's optional, explicitly
+# non-authoritative advisory reading — never the decision itself.
+
+system: internship-coordinator
+dataset: internship-coordinator-golden-v1
+
+evaluators:
+  - status_correctness
+  - finding_codes_correctness
+  - document_field_accuracy
+  - advisory_quality   # LLM-as-judge; passes-through as "not applicable" when the
+                        # target system has no LLM configured (its own default)
+
+thresholds:
+  status_correctness:
+    minimum: 0.90
+  finding_codes_correctness:
+    minimum: 0.90
+  document_field_accuracy:
+    minimum: 0.90
+
+# Adapter connection settings — see app/adapters/internship_coordinator.py.
+# Point this at a disposable/staging deployment, not production: see
+# PROJECT_PLAN.md's "shared corpus state" note before running experiments
+# against a long-lived instance.
+adapter:
+  base_url: http://127.0.0.1:8000
+  timeout_s: 60
+
+llm_judge:
+  model: gpt-4o-mini
+  prompt_version: v1
+
+# concurrency=1 is deliberate, not a placeholder. The target system keeps
+# mutable shared state (SQLite + an in-memory originality corpus) across
+# submissions — running cases concurrently races against that state and
+# makes results non-reproducible. See PROJECT_PLAN.md §4.7/§7 and
+# scripts/build_internship_coordinator_dataset.py, which restarts the
+# target between case groups for exactly this reason.
+concurrency: 1

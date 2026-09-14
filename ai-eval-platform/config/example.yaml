@@ -1,0 +1,48 @@
+# ATA RAG experiment configuration (spec §24), rebuilt around the real
+# system's own golden set (PROJECT_PLAN.md §8) after cloning
+# github.com/codcreater1/ata-rag and reading its evaluation harness.
+# Adding a new evaluation should only ever require a config change like this
+# one — never an edit to app/core/*.
+
+system: ata-rag
+dataset: ata-rag-golden-v1
+
+evaluators:
+  - answered_correctness    # ported from ata-rag's own eval/run_eval.py
+  - language_correctness    # ported from the same source
+  - keyword_requirements    # ported from the same source (contains_all/any, not_contains)
+  # LLM-as-judge groundedness/citation_accuracy are registered but NOT
+  # included by default: the public /chat/ask API returns cited sources
+  # (title+url) but not the retrieved passage text, so there's nothing to
+  # judge groundedness against from this adapter. See PROJECT_PLAN.md §8 and
+  # app/adapters/ata_rag.py's docstring for the two ways to close that gap.
+  # - answer_correctness
+  # - groundedness
+  # - citation_accuracy
+
+thresholds:
+  answered_correctness:
+    minimum: 0.90
+  language_correctness:
+    minimum: 0.90
+  keyword_requirements:
+    minimum: 0.85   # ata-rag's own harness gates at 0.90 pass RATE; this is per-case score
+
+adapter:
+  base_url: http://127.0.0.1:8000
+  timeout_s: 90   # cold LLM calls (Groq -> Gemini fallback) can be slow
+
+llm_judge:
+  model: gpt-4o-mini          # swap for whatever provider/model the team settles on
+  prompt_version: v1
+
+# ata-rag is stateless per-request (unlike internship-coordinator's shared
+# corpus), but it rate-limits by client IP: 20 requests / 60s
+# (backend/app/core/cache.py RATE_LIMIT_REQUESTS/_WINDOW_SECONDS). Running
+# this dataset concurrently from one evaluation runner IP will trip that
+# limit well before finishing — the source repo's own harness has the same
+# problem against a deployed instance and works around it with a
+# --delay flag. This scaffold doesn't have an inter-request delay yet
+# (see PROJECT_PLAN.md §8); until it does, keep concurrency low and prefer
+# running against a staging deploy with a relaxed or disabled rate limit.
+concurrency: 1
