@@ -27,7 +27,7 @@ thresholds:
 # PROJECT_PLAN.md's "shared corpus state" note before running experiments
 # against a long-lived instance.
 adapter:
-  base_url: http://127.0.0.1:8000
+  base_url: https://pomelo-7.codewithpeter.com
   timeout_s: 60
 
 llm_judge:
