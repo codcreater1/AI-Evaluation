@@ -10,3 +10,4 @@ venv/
 experiments/*.json
 !experiments/.gitkeep
 .DS_Store
+desktop.ini
