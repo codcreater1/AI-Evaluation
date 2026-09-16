@@ -23,11 +23,18 @@ thresholds:
     minimum: 0.90
 
 # Adapter connection settings — see app/adapters/internship_coordinator.py.
-# Point this at a disposable/staging deployment, not production: see
-# PROJECT_PLAN.md's "shared corpus state" note before running experiments
-# against a long-lived instance.
+# Points at the team's real Coolify deployment. Read PROJECT_PLAN.md's
+# "shared corpus state" note (§4.7/§7) before running experiments here: this
+# is a shared, long-lived instance, not a disposable one, so results can be
+# order-dependent — coordinate with the team before running the full
+# dataset, and prefer running it in one go rather than interleaved with
+# other manual testing against the same deployment.
 adapter:
-  base_url: https://pomelo-7.codewithpeter.com
+  # pomelo-7 is this system's frontend (a React SPA) — the actual backend
+  # API (POST /reports/) lives at pomelo-6, discovered by hitting pomelo-7
+  # and getting the SPA's index.html back for every path, including
+  # /openapi.json, instead of a real API response.
+  base_url: https://pomelo-6.codewithpeter.com
   timeout_s: 60
 
 llm_judge:

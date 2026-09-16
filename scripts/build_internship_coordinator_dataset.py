@@ -235,7 +235,7 @@ def main() -> None:
     print(f"{'copied':15s} -> status={copied_response['status']}")
 
     args.out.parent.mkdir(parents=True, exist_ok=True)
-    with args.out.open("w") as f:
+    with args.out.open("w", encoding="utf-8") as f:
         for scenario in SCENARIOS:
             f.write(json.dumps(cases[scenario]) + "\n")
 

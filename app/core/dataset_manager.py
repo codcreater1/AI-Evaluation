@@ -66,7 +66,7 @@ class DatasetManager:
         if not path.exists():
             raise FileNotFoundError(f"No dataset {system}/{version}")
         cases = []
-        with path.open() as f:
+        with path.open(encoding="utf-8") as f:
             for line in f:
                 line = line.strip()
                 if line:
@@ -100,7 +100,7 @@ class DatasetManager:
                 )
 
         path = self._path(system, version)
-        with path.open("w") as f:
+        with path.open("w", encoding="utf-8") as f:
             for case in cases:
                 f.write(case.model_dump_json() + "\n")
         return version

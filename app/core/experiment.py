@@ -68,16 +68,24 @@ class ExperimentStore:
         self.root.mkdir(parents=True, exist_ok=True)
 
     def save(self, experiment: Experiment) -> Path:
+        # encoding="utf-8" is required, not decorative: real case data (names,
+        # source text) is routinely non-ASCII (Polish "ś", Turkish "ı", etc.),
+        # and Path.write_text()'s platform default on Windows is the system
+        # ANSI code page, not UTF-8 — this raised a real UnicodeEncodeError
+        # the first time this ran against real captured data.
         path = self.root / f"{experiment.id}.json"
-        path.write_text(experiment.model_dump_json(indent=2))
+        path.write_text(experiment.model_dump_json(indent=2), encoding="utf-8")
         return path
 
     def load(self, experiment_id: str) -> Experiment:
         path = self.root / f"{experiment_id}.json"
-        return Experiment.model_validate_json(path.read_text())
+        return Experiment.model_validate_json(path.read_text(encoding="utf-8"))
 
     def list_experiments(self, system: str | None = None) -> list[Experiment]:
-        results = [Experiment.model_validate_json(p.read_text()) for p in self.root.glob("*.json")]
+        results = [
+            Experiment.model_validate_json(p.read_text(encoding="utf-8"))
+            for p in self.root.glob("*.json")
+        ]
         if system:
             results = [e for e in results if e.system == system]
         return sorted(results, key=lambda e: e.created_at)

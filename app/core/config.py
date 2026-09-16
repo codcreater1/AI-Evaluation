@@ -31,5 +31,5 @@ class ExperimentConfig(BaseModel):
 
     @classmethod
     def from_yaml(cls, path: str | Path) -> ExperimentConfig:
-        data = yaml.safe_load(Path(path).read_text())
+        data = yaml.safe_load(Path(path).read_text(encoding="utf-8"))
         return cls.model_validate(data)

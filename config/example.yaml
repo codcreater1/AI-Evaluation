@@ -29,7 +29,7 @@ thresholds:
     minimum: 0.85   # ata-rag's own harness gates at 0.90 pass RATE; this is per-case score
 
 adapter:
-  base_url: https://pomelo-9.codewithpeter.com
+  base_url: https://pomelo-9.codewithpeter.com  # team's real Coolify deployment
   timeout_s: 90   # cold LLM calls (Groq -> Gemini fallback) can be slow
 
 llm_judge:
