@@ -1,11 +1,11 @@
-# Real evaluator set for the Internship Coordinator (PROJECT_PLAN.md §4.7).
+# Real evaluator set for the Internship Coordinator (PROJECT_PLAN.md section 4.7).
 # Its decision (status + findings) is deterministic by design, so the
 # correctness evaluators are deterministic too; the only LLM judge is
 # advisory_quality, which checks the system's optional, explicitly
-# non-authoritative advisory reading — never the decision itself.
+# non-authoritative advisory reading -- never the decision itself.
 
 system: internship-coordinator
-dataset: internship-coordinator-golden-v1
+dataset: internship-coordinator-golden-v2
 
 evaluators:
   - status_correctness
@@ -22,19 +22,22 @@ thresholds:
   document_field_accuracy:
     minimum: 0.90
 
-# Adapter connection settings — see app/adapters/internship_coordinator.py.
+# Adapter connection settings -- see app/adapters/internship_coordinator.py.
 # Points at the team's real Coolify deployment. Read PROJECT_PLAN.md's
-# "shared corpus state" note (§4.7/§7) before running experiments here: this
-# is a shared, long-lived instance, not a disposable one, so results can be
-# order-dependent — coordinate with the team before running the full
+# "shared corpus state" note (section 4.7/7) before running experiments here:
+# this is a shared, long-lived instance, not a disposable one, so results can
+# be order-dependent -- coordinate with the team before running the full
 # dataset, and prefer running it in one go rather than interleaved with
 # other manual testing against the same deployment.
 adapter:
-  # pomelo-7 is this system's frontend (a React SPA) — the actual backend
-  # API (POST /reports/) lives at pomelo-6, discovered by hitting pomelo-7
-  # and getting the SPA's index.html back for every path, including
-  # /openapi.json, instead of a real API response.
-  base_url: https://pomelo-6.codewithpeter.com
+  # pomelo-6/pomelo-7 turned out to belong to a different system that also
+  # happens to be called "Internship Coordinator" (an unrelated CV-screening
+  # + contract-signing app). This repo's real deployment is pomelo-3
+  # (frontend, a React SPA) / pomelo-2 (backend) -- confirmed via pomelo-2's
+  # /openapi.json: info.title "Internship Report Reviewer", paths including
+  # /reports/, /reports/rules, /reports/by-id/{id}/sign,
+  # /reports/by-id/{id}/certificate.
+  base_url: https://pomelo-2.codewithpeter.com
   timeout_s: 60
 
 llm_judge:
@@ -43,8 +46,10 @@ llm_judge:
 
 # concurrency=1 is deliberate, not a placeholder. The target system keeps
 # mutable shared state (SQLite + an in-memory originality corpus) across
-# submissions — running cases concurrently races against that state and
-# makes results non-reproducible. See PROJECT_PLAN.md §4.7/§7 and
+# submissions -- running cases concurrently races against that state and
+# makes results non-reproducible. See PROJECT_PLAN.md section 4.7/7 and
 # scripts/build_internship_coordinator_dataset.py, which restarts the
-# target between case groups for exactly this reason.
+# target between case groups for exactly this reason. The v2 dataset
+# (scripts/reorder_ic_dataset.py) also reorders cases so clean/copied run
+# last, since only accepted submissions join the shared corpus.
 concurrency: 1
