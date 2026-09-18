@@ -21,7 +21,7 @@ except ImportError:  # pragma: no cover - python-dotenv is a dev convenience, no
     pass
 
 import app.bootstrap as _bootstrap  # noqa: F401,E402 - side-effect import registers evaluators + adapters
-from app.api.routes import datasets, experiments, systems  # noqa: E402
+from app.api.routes import datasets, experiments, report, systems  # noqa: E402
 
 app = FastAPI(
     title="AI Evaluation Platform",
@@ -32,6 +32,7 @@ app = FastAPI(
 app.include_router(datasets.router)
 app.include_router(experiments.router)
 app.include_router(systems.router)
+app.include_router(report.router)
 
 
 @app.get("/health")

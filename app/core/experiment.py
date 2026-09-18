@@ -82,10 +82,17 @@ class ExperimentStore:
         return Experiment.model_validate_json(path.read_text(encoding="utf-8"))
 
     def list_experiments(self, system: str | None = None) -> list[Experiment]:
-        results = [
-            Experiment.model_validate_json(p.read_text(encoding="utf-8"))
-            for p in self.root.glob("*.json")
-        ]
+        results = []
+        for path in self.root.glob("*.json"):
+            try:
+                results.append(Experiment.model_validate_json(path.read_text(encoding="utf-8")))
+            except ValueError as exc:
+                # A run that got killed mid-write (Ctrl+C, a crashed uvicorn
+                # reload, disk full) can leave an empty or truncated JSON file
+                # behind. One bad file shouldn't take down the whole listing
+                # (or the /report page) - skip it, but say so on stderr so
+                # it's still discoverable rather than silently dropped.
+                print(f"Skipping unreadable experiment file {path}: {exc}")
         if system:
             results = [e for e in results if e.system == system]
         return sorted(results, key=lambda e: e.created_at)
