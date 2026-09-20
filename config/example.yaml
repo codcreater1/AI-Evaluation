@@ -5,7 +5,7 @@
 # one â€” never an edit to app/core/*.
 
 system: ata-rag
-dataset: ata-rag-golden-v1
+dataset: ata-rag-golden-v2
 
 evaluators:
   - answered_correctness    # ported from ata-rag's own eval/run_eval.py

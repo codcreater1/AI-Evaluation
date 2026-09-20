@@ -1,11 +1,11 @@
-# Real evaluator set for the Internship Coordinator (PROJECT_PLAN.md section 4.7).
+﻿# Real evaluator set for the Internship Coordinator (PROJECT_PLAN.md section 4.7).
 # Its decision (status + findings) is deterministic by design, so the
 # correctness evaluators are deterministic too; the only LLM judge is
 # advisory_quality, which checks the system's optional, explicitly
 # non-authoritative advisory reading -- never the decision itself.
 
 system: internship-coordinator
-dataset: internship-coordinator-golden-v2
+dataset: internship-coordinator-golden-v4
 
 evaluators:
   - status_correctness

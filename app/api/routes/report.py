@@ -165,6 +165,9 @@ def _render_failed_cases(record: CaseRecord) -> str:
         reason_text = html.escape(r.reason or "no reason given")
         reason_lines.append(f"<strong>{evaluator_name}</strong>: {reason_text}")
     reasons = "<br>".join(reason_lines) or '<span class="muted">(no pass/fail reason given)</span>'
+    if record.execution.error:
+        error_text = html.escape(record.execution.error)
+        reasons += f'<br><span class="fail">adapter error: {error_text}</span>'
     case_id = html.escape(record.case_id)
     return f"<tr><td><code>{case_id}</code></td><td>{reasons}</td><td>{trace_link}</td></tr>"
 
