@@ -50,25 +50,45 @@ def get_client() -> Any:
     return _client
 
 
+class _DisabledSpan:
+    """Stand-in yielded when Langfuse isn't configured, so callers can use
+    the same `.trace_id` / `.update(output=...)` interface either way
+    instead of branching on whether tracing is enabled."""
+
+    def __init__(self, trace_id: str) -> None:
+        self.trace_id = trace_id
+
+    def update(self, **_kwargs: Any) -> None:
+        pass
+
+
 @contextmanager
 def trace_case_execution(
-    *, system: str, case_id: str, experiment_id: str | None = None
-) -> Iterator[str]:
-    """Wraps one case's system-execution + evaluation. Yields a trace id that
-    should be stored on SystemExecution.trace_id so reports/dashboards can
-    deep-link straight to it (spec §13 requires this for every run)."""
+    *, system: str, case_id: str, experiment_id: str | None = None, input: Any = None
+) -> Iterator[Any]:
+    """Wraps one case's system-execution + evaluation. Yields an object with
+    a `.trace_id` (stored on SystemExecution.trace_id so reports/dashboards
+    can deep-link straight to it — spec §13) and an `.update(output=...)`
+    the caller invokes once the system's actual output is known.
+
+    `input` is set at span-creation time since the case input is already
+    known then; `output` is not, so it has to arrive via `.update()` after
+    the adapter call inside the `with` block returns — previously nothing
+    set either, so every trace in Langfuse showed input=null/output=undefined
+    despite the case data being right there."""
     client = get_client()
     if client is None:
-        yield f"disabled-{uuid4()}"
+        yield _DisabledSpan(f"disabled-{uuid4()}")
         return
 
     with client.start_as_current_observation(
         as_type="span",
         name=f"evaluation:{system}",
+        input=input,
         metadata={"case_id": case_id, "experiment_id": experiment_id},
     ) as span:
         try:
-            yield span.trace_id
+            yield span
         finally:
             client.flush()
 

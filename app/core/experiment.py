@@ -113,10 +113,11 @@ class ExperimentRunner:
 
     async def _run_case(self, case: EvaluationCase, experiment_id: str) -> CaseRecord:
         with trace_case_execution(
-            system=case.system, case_id=case.id, experiment_id=experiment_id
-        ) as trace_id:
+            system=case.system, case_id=case.id, experiment_id=experiment_id, input=case.input
+        ) as span:
             execution = await self.adapter.run(case)
-            execution.trace_id = trace_id
+            execution.trace_id = span.trace_id
+            span.update(output=execution.output)
 
             results = []
             for evaluator in self.evaluators:
@@ -124,11 +125,11 @@ class ExperimentRunner:
                 results.append(result)
                 if result.score is not None:
                     score_trace(
-                        trace_id, name=result.evaluator, value=result.score, comment=result.reason
+                        span.trace_id, name=result.evaluator, value=result.score, comment=result.reason
                     )
                 elif result.passed is not None:
                     score_trace(
-                        trace_id, name=result.evaluator, value=result.passed, comment=result.reason
+                        span.trace_id, name=result.evaluator, value=result.passed, comment=result.reason
                     )
 
         return CaseRecord(case_id=case.id, execution=execution, results=results)
