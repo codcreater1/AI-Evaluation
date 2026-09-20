@@ -47,11 +47,16 @@ See PROJECT_PLAN.md §4.4. Short version: they're small, need to be
 git-diffable in PRs, and don't need Postgres's relational features the way
 experiment/run metadata does.
 
-## What's still a stub
+## What's still open
 
-- `app/adapters/ata_rag.py` and `internship_coordinator.py`: `_call()` raises
-  `NotImplementedError` — wire these to the real systems first.
-- `LLMJudgeEvaluator.call_model()`: needs a real LLM provider client.
+- `app/adapters/ata_rag.py` and `internship_coordinator.py` are wired to
+  the real deployments (pomelo-8, pomelo-2) — not stubs. See README.md
+  section 4-5 for how to run real experiments against them.
+- ATA RAG's `groundedness`/`citation_accuracy` LLM-judge evaluators are
+  registered but not enabled by default in `config/example.yaml` — the
+  public `/chat/ask` API doesn't return retrieved passage text, so there's
+  nothing to judge groundedness against yet (see `ata_rag.py`'s docstring
+  for the two ways to close that gap).
 - `app/integrations/langfuse_client.py`: works with real Langfuse keys in
   `.env`; degrades to inert no-ops without them, so tests never need network
   access or credentials.

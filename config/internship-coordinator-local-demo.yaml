@@ -1,0 +1,44 @@
+# Same evaluation as config/internship-coordinator.yaml, but pointed at a
+# LOCAL Internship Coordinator instance instead of the shared team deployment
+# (pomelo-2). Use this whenever you want to change something about the
+# target system (a policy value in rules/university-rules.json, a code
+# change) and re-run an experiment to see the effect — see README.md's
+# "Demo: baseline -> change -> regression" walkthrough.
+#
+# Why a separate file instead of just editing internship-coordinator.yaml:
+# pomelo-2 is a shared, long-lived instance other people's traffic also hits
+# (PROJECT_PLAN.md section 9). Never point experiments meant to catch a
+# regression at a shared instance — you have no baseline you can trust once
+# something else may have changed it between runs. A local instance you
+# started yourself is the only way to make "baseline vs modified" mean
+# anything.
+
+system: internship-coordinator
+dataset: internship-coordinator-golden-v4
+
+evaluators:
+  - status_correctness
+  - finding_codes_correctness
+  - document_field_accuracy
+  - advisory_quality
+
+thresholds:
+  status_correctness:
+    minimum: 0.90
+  finding_codes_correctness:
+    minimum: 0.90
+  document_field_accuracy:
+    minimum: 0.90
+
+adapter:
+  base_url: http://127.0.0.1:8010   # matches --port 8010 in the README's local-instance walkthrough
+  timeout_s: 60
+
+llm_judge:
+  model: gpt-4o-mini
+  prompt_version: v1
+
+# Same reasoning as internship-coordinator.yaml: the target keeps mutable
+# shared state (SQLite + an in-memory originality corpus) across
+# submissions, so cases must run one at a time to stay reproducible.
+concurrency: 1
