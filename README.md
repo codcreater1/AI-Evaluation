@@ -177,7 +177,36 @@ trace (deep-linkable via the case's `trace_id`) now carries real
 input/output, not just metadata — fixed in commit `2aba77b` after tracing
 showed `input: null`/`output: undefined` for every case.
 
-## 7. Quick tour
+## 7. CI/CD regression gate
+
+`.github/workflows/evaluate.yml` runs on every PR touching `app/**`,
+`config/**` or `datasets/**`:
+
+- **ATA RAG**: runs the real 102-case dataset against the live pomelo-8
+  deployment directly from CI — safe, because the system is stateless per
+  request.
+- **Internship Coordinator**: CI builds and runs
+  `Internship-report-reviewer`'s own `backend/Dockerfile` as a disposable
+  container, fresh per run, and evaluates against that instead of the
+  shared pomelo-2 deployment. Never point a CI job at pomelo-2 — see the
+  shared-corpus finding in section 5 above; a fresh container per run is
+  the actual fix (`config/internship-coordinator-ci.yaml`).
+
+Both jobs compare their run against the last known-good baseline (the most
+recent successful run on `main`, passed between workflow runs as a GitHub
+Actions artifact — experiment result JSONs still aren't committed to the
+repo, same as running them locally) using the same `compare()` logic behind
+`/experiments/compare`, via `scripts/ci_run_and_gate.py`. No baseline yet
+(first run, or nothing's merged since this workflow was added) still gates
+on each metric's configured `minimum` — a PR can't merge below the floor
+either way. Results post as a PR comment, updated in place on re-runs.
+
+**To actually block merges on this**, mark `test`, `evaluate-ata-rag` and
+`evaluate-internship-coordinator` as required status checks in the `main`
+branch protection rule (Settings → Branches) — a workflow file can't set
+that on its own.
+
+## 8. Quick tour
 
 ```
 app/core/         schemas, Evaluator interface, dataset manager, experiment runner, regression logic
@@ -190,7 +219,7 @@ datasets/          versioned, immutable-once-used golden datasets (JSONL), one f
 tests/             pytest suite; runs standalone, no live systems or LLM calls needed
 ```
 
-## 8. Troubleshooting
+## 9. Troubleshooting
 
 - **`curl: (7) Failed to connect`** — the platform's own API server (step 4)
   isn't running, or was closed in whichever terminal window had it. Start
@@ -211,7 +240,7 @@ tests/             pytest suite; runs standalone, no live systems or LLM calls n
   executable by full path (`.venv\Scripts\python.exe`, not bare `python`)
   if this happens instead of debugging PATH order.
 
-## 9. Status
+## 10. Status
 
 Both system adapters (`app/adapters/ata_rag.py`,
 `internship_coordinator.py`) are wired to their real deployments and have
@@ -223,10 +252,8 @@ input/output, API) runs today; `pytest -q` is the fast confirmation, the
 walkthroughs above are the real-system confirmation.
 
 Still open, by design, not by omission — see PROJECT_PLAN.md for why each
-one is scoped where it is: a full CI/CD regression gate (skeleton exists in
-`.github/workflows/evaluate.yml`, PR-blocking polish is the 29.09
-milestone), a ~20-30 case manual human-evaluation spot-check, and ATA RAG's
-`groundedness`/`citation_accuracy` LLM-judge evaluators (registered but not
+one is scoped where it is: a ~20-30 case manual human-evaluation spot-check,
+and ATA RAG's `groundedness`/`citation_accuracy` LLM-judge evaluators (registered but not
 enabled by default — the public `/chat/ask` API returns cited sources but
 not the retrieved passage text, so there's nothing to judge groundedness
 against without the adapter change documented in `ata_rag.py`'s docstring).
