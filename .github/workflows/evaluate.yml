@@ -1,7 +1,39 @@
-# CI/CD skeleton — spec §18. Deliberately minimal for the 21.09 platform
-# deadline; hardening this into a real PR-blocking gate (posting the
-# "AI Evaluation Failed" comment, comparing against the last merged baseline
-# automatically, etc.) is the 29.09 CI/CD milestone's job.
+# AI Evaluation CI gate — spec §18, Definition of Done #9 (run in CI) / #8
+# (detect regressions). This is the 29.09 milestone; the pytest-only
+# version that used to be here was a deliberate placeholder for the 21.09
+# platform deadline (see PROJECT_PLAN.md §1/§6).
+#
+# What this does, per system:
+#   - ata-rag: runs the real 102-case dataset against the live deployment
+#     (pomelo-8). Safe to do straight from CI -- the system is stateless
+#     per request (PROJECT_PLAN.md §8), so concurrent PRs hitting it don't
+#     interfere with each other's results.
+#   - internship-coordinator: NEVER run against the shared pomelo-2
+#     deployment from CI. It keeps a persistent, mutable originality corpus
+#     (PROJECT_PLAN.md §7/§9) -- a PR-triggered run against it would both
+#     get non-reproducible results and pollute production data other
+#     people's real traffic depends on. Instead this job builds and runs
+#     Internship-report-reviewer's own backend/Dockerfile as a disposable
+#     container, fresh per run -- PROJECT_PLAN.md §7's own suggested fix.
+#
+# Regression detection: each run is compared against the last known-good
+# baseline for that system (the most recent successful run on `main`,
+# fetched as a cross-run artifact) using the same app.core.regression.compare()
+# the API's GET /experiments/compare uses -- see scripts/ci_run_and_gate.py.
+# No baseline found (first run ever, or the lookup failed) still gates on
+# each metric's configured `minimum`, just without the baseline-relative
+# checks -- a PR can never merge below the floor, baseline or not.
+#
+# Experiment result JSONs are passed between runs as workflow artifacts,
+# never committed to the repo -- consistent with `experiments/*.json` being
+# gitignored (PROJECT_PLAN.md §4: datasets are versioned files, run results
+# are not).
+#
+# To actually block merges on this: mark "test", "evaluate-ata-rag" and
+# "evaluate-internship-coordinator" as required status checks in the
+# branch protection rule for `main` (Settings -> Branches). A workflow file
+# can't set that itself.
+
 name: AI Evaluation
 
 on:
@@ -10,26 +42,215 @@ on:
       - "app/**"
       - "config/**"
       - "datasets/**"
+  push:
+    branches: [main]
+    paths:
+      - "app/**"
+      - "config/**"
+      - "datasets/**"
 
 jobs:
-  evaluate:
+  test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: pip install -e ".[dev]"
+      - name: Run unit + integration tests
+        run: pytest -q
+
+  evaluate-ata-rag:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: pip install -e ".[dev]"
+
+      # Best-effort: no baseline yet (first run, or nothing merged to main
+      # since this workflow was added) just means threshold-only gating --
+      # see scripts/ci_run_and_gate.py's docstring.
+      - name: Fetch latest baseline from main
+        uses: dawidd6/action-download-artifact@v6
+        continue-on-error: true
+        with:
+          workflow: evaluate.yml
+          branch: main
+          name: baseline-ata-rag
+          path: baseline/
+          if_no_artifact_found: warn
+
+      - name: Run experiment + regression gate
+        id: gate
+        continue-on-error: true
+        run: |
+          python scripts/ci_run_and_gate.py \
+            --config config/example.yaml \
+            --name "ci-${{ github.run_id }}" \
+            --baseline baseline/ata-rag.json \
+            --out results/ata-rag.json \
+            --out-md results/ata-rag.md
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: result-ata-rag
+          path: results/ata-rag.md
+
+      # Only main's own runs become the next baseline -- a PR's result,
+      # pass or fail, must never become what the *next* PR is compared
+      # against.
+      - uses: actions/upload-artifact@v4
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        with:
+          name: baseline-ata-rag
+          path: results/ata-rag.json
+          overwrite: true
+
+      - name: Fail job on regression
+        if: steps.gate.outcome == 'failure'
+        run: exit 1
+
+  evaluate-internship-coordinator:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: ai-eval-platform
+
+      - uses: actions/checkout@v4
+        with:
+          repository: codcreater1/Internship-report-reviewer
+          path: internship-report-reviewer
+
+      - name: Build a disposable Internship Coordinator container
+        run: |
+          docker build -t ic-ci-instance \
+            -f internship-report-reviewer/backend/Dockerfile \
+            internship-report-reviewer/backend
+
+      - name: Run it (fresh SQLite corpus, no LLM key needed for the deterministic checks this gate uses)
+        run: docker run -d --name ic-ci-instance -p 8000:8000 ic-ci-instance
+
+      - name: Wait for /health
+        run: |
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:8000/health > /dev/null; then
+              echo "Internship Coordinator is up."
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "::error::Internship Coordinator container never became healthy"
+          docker logs ic-ci-instance
+          exit 1
 
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-
       - name: Install dependencies
+        working-directory: ai-eval-platform
         run: pip install -e ".[dev]"
 
-      - name: Run unit + integration tests
-        run: pytest -q
+      - name: Fetch latest baseline from main
+        uses: dawidd6/action-download-artifact@v6
+        continue-on-error: true
+        with:
+          workflow: evaluate.yml
+          branch: main
+          name: baseline-internship-coordinator
+          path: ai-eval-platform/baseline/
+          if_no_artifact_found: warn
 
-      # TODO (29.09 milestone): run the real evaluation experiment(s) here,
-      # e.g. `python -m app.cli run-experiment config/example.yaml`, then
-      # compare against the last baseline stored in experiments/ and fail
-      # the job (exit non-zero) on regression per spec §17-18.
-      - name: Run evaluation against golden dataset (placeholder)
-        run: echo "TODO: wire up experiment run + regression gate here"
+      - name: Run experiment + regression gate
+        id: gate
+        continue-on-error: true
+        working-directory: ai-eval-platform
+        run: |
+          python scripts/ci_run_and_gate.py \
+            --config config/internship-coordinator-ci.yaml \
+            --name "ci-${{ github.run_id }}" \
+            --baseline baseline/internship-coordinator.json \
+            --out results/internship-coordinator.json \
+            --out-md results/internship-coordinator.md
+
+      - name: Tear down the container
+        if: always()
+        run: docker rm -f ic-ci-instance
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: result-internship-coordinator
+          path: ai-eval-platform/results/internship-coordinator.md
+
+      - uses: actions/upload-artifact@v4
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        with:
+          name: baseline-internship-coordinator
+          path: ai-eval-platform/results/internship-coordinator.json
+          overwrite: true
+
+      - name: Fail job on regression
+        if: steps.gate.outcome == 'failure'
+        run: exit 1
+
+  comment:
+    needs: [evaluate-ata-rag, evaluate-internship-coordinator]
+    if: always() && github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: result-*
+          path: results/
+          merge-multiple: false
+
+      - name: Combine results into one comment body
+        run: |
+          echo "## AI Evaluation Results" > comment.md
+          echo "" >> comment.md
+          for f in results/result-*/*.md; do
+            cat "$f" >> comment.md
+            echo "" >> comment.md
+          done
+          cat comment.md
+
+      - name: Post or update PR comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const body = fs.readFileSync('comment.md', 'utf8');
+            const marker = '<!-- ai-evaluation-gate -->';
+            const fullBody = `${marker}\n${body}`;
+
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            const existing = comments.find(c => c.body.startsWith(marker));
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body: fullBody,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: fullBody,
+              });
+            }

@@ -1,0 +1,39 @@
+# Same evaluation as config/internship-coordinator.yaml, but for the CI
+# regression gate (.github/workflows/evaluate.yml), which builds and runs
+# Internship-report-reviewer's own backend/Dockerfile as a throwaway
+# container per run -- a fresh SQLite corpus every time, so the
+# order-dependency finding in PROJECT_PLAN.md §7 (a shared, mutable
+# originality corpus) simply doesn't apply here. This is the "GitHub
+# Actions job that spins up a fresh container per run has no leftover
+# corpus state to worry about" fix that same section describes.
+#
+# base_url matches the container's EXPOSE'd port (8000) as published by the
+# workflow's `docker run -p 8000:8000` step -- not 8010, which is the
+# convention used for a manually-started local instance in README.md.
+
+system: internship-coordinator
+dataset: internship-coordinator-golden-v4
+
+evaluators:
+  - status_correctness
+  - finding_codes_correctness
+  - document_field_accuracy
+  - advisory_quality
+
+thresholds:
+  status_correctness:
+    minimum: 0.90
+  finding_codes_correctness:
+    minimum: 0.90
+  document_field_accuracy:
+    minimum: 0.90
+
+adapter:
+  base_url: http://127.0.0.1:8000
+  timeout_s: 60
+
+llm_judge:
+  model: gpt-4o-mini
+  prompt_version: v1
+
+concurrency: 1
