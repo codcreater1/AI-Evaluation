@@ -251,9 +251,15 @@ regression detection via `/experiments/compare`, Langfuse tracing with real
 input/output, API) runs today; `pytest -q` is the fast confirmation, the
 walkthroughs above are the real-system confirmation.
 
-Still open, by design, not by omission — see PROJECT_PLAN.md for why each
-one is scoped where it is: a ~20-30 case manual human-evaluation spot-check,
-and ATA RAG's `groundedness`/`citation_accuracy` LLM-judge evaluators (registered but not
-enabled by default — the public `/chat/ask` API returns cited sources but
-not the retrieved passage text, so there's nothing to judge groundedness
-against without the adapter change documented in `ata_rag.py`'s docstring).
+The 30-case human evaluation spot-check (spec §20-21, PROJECT_PLAN.md §2)
+is done — see `human-eval-spotcheck.md`: 90% agreement with the automated
+evaluators, and the 3 disagreements are genuine, fixable findings (not
+sampling noise) — see PROJECT_PLAN.md §9.7 for how they change how the
+real v4 baseline numbers should be read.
+
+Still open, by design, not by omission — see PROJECT_PLAN.md for why it's
+scoped where it is: ATA RAG's `groundedness`/`citation_accuracy` LLM-judge
+evaluators (registered but not enabled by default — the public `/chat/ask`
+API returns cited sources but not the retrieved passage text, so there's
+nothing to judge groundedness against without the adapter change documented
+in `ata_rag.py`'s docstring).

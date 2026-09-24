@@ -322,3 +322,47 @@ Baseline result, full 26-case golden dataset, first real run:
 
 | keyword\_requirements | 1.0 |
 
+
+
+\### 9.7 Final numbers: ATA RAG v3 (102 cases) and Internship Coordinator v4 (50 cases), both against live deployments (2026-09-20)
+
+
+
+Dataset completed to the 100-case minimum for ATA RAG (v2's 50 -> v3's 102, covering previously-untested Architecture/Civil Engineering programmes, university history, rankings, housing, scholarships, contact info, and more multilingual/injection cases -- all checks verified against the real live pomelo-8 before being added, same discipline as \S8).
+
+
+
+| system | metric | score |
+
+|---|---|---|
+
+| ata-rag (v3, 102 cases) | answered\_correctness | 1.0 |
+
+| ata-rag (v3, 102 cases) | language\_correctness | 1.0 |
+
+| ata-rag (v3, 102 cases) | keyword\_requirements | 1.0 |
+
+| internship-coordinator (v4, 50 cases) | status\_correctness | 0.96 |
+
+| internship-coordinator (v4, 50 cases) | finding\_codes\_correctness | 0.96 |
+
+| internship-coordinator (v4, 50 cases) | document\_field\_accuracy | 0.98 |
+
+
+
+**The Internship Coordinator gap is not 2 unexplained failures -- it's the same two things this document already predicted, caught happening for real.** A 30-case independent spot-check (methodology and full findings: `human-eval-spotcheck.md`, delivered alongside this update) traced both cases behind the 0.96 scores to specific, understood causes rather than a system defect:
+
+
+
+\- `ic-clean-01` came back `rejected` / `REPORT\_NOT\_ORIGINAL`, 100% similar to an earlier accepted submission -- exactly \S7/\S9.2's shared-corpus finding, striking this "final" baseline run itself. pomelo-2's corpus has no reset between anyone's test runs, so a "clean" case is only trustworthy once per corpus lifetime -- this run wasn't that once.
+
+\- `ic-short-days-01` recorded a real `504 Gateway Timeout` from pomelo-2 -- the request never got a response. All three deterministic evaluators still scored it 0.0, identically to how they'd score an actually-wrong decision, because nothing in the pipeline yet distinguishes "the adapter call failed" from "the system decided wrong." That's a real gap in the evaluators, not in Internship Coordinator -- worth fixing (check `execution.error` and exclude/bucket separately) before quoting this number as the system's decision accuracy again.
+
+
+
+Net: excluding those two explained cases, 48/48 remaining Internship Coordinator cases and all 102 ATA RAG cases matched expectations. Report the 0.96/0.96/0.98 numbers with this note attached, not as a bare score -- an annotated real number is more credible than a quietly-rounded one.
+
+
+
+The spot-check also surfaced one ATA RAG finding worth a mention even though it didn't fail anything: `ata-rag-lang-tr-master-programmes`'s real answer is Turkish prose wrapping several untranslated Polish programme titles, which the language evaluator's function-word counter misreads as Polish (the repeated Polish preposition "w" inside each programme's own name outweighs the sentence's actual Turkish grammar). The dataset's own check was written to match that detector's real output, so it passes -- correctly, by the evaluator's own logic, while the evaluator itself is wrong about the language. A general limitation of short function-word detection on answers that legitimately quote foreign-language proper nouns, not a one-case bug.
+
