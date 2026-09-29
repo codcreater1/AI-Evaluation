@@ -28,6 +28,13 @@ class ExperimentConfig(BaseModel):
     llm_judge: dict[str, Any] = Field(default_factory=dict)
     adapter: dict[str, Any] = Field(default_factory=dict)
     concurrency: int = 5
+    # How many cases may flip pass -> fail against the baseline before the
+    # regression gate fails on case churn alone (metric thresholds above
+    # still apply regardless). 0 = strict: any newly failing case fails the
+    # gate - right for deterministic systems (internship-coordinator in a
+    # fresh CI container). A non-deterministic LLM system needs slack here:
+    # see config/example.yaml for the real CI data behind ata-rag's value.
+    max_newly_failing_cases: int = 0
 
     @classmethod
     def from_yaml(cls, path: str | Path) -> ExperimentConfig:

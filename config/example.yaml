@@ -28,6 +28,16 @@ thresholds:
   keyword_requirements:
     minimum: 0.85   # ata-rag's own harness gates at 0.90 pass RATE; this is per-case score
 
+# ata-rag is an LLM system: the same question can pass one run and fail the
+# next with no code change at all. Real evidence, CI run #15 vs its baseline
+# #14 (a dashboard-only commit, nothing touching ata-rag): 3 cases newly
+# failing AND 3 different cases newly passing, answered_correctness
+# identical (0.9684 -> 0.9684). A strict "any newly failing case fails the
+# gate" rule turns that noise into a red build. Allow up to 5 flips (~5% of
+# 102 cases); the metric minimums above remain the real floor, and the
+# flipped case ids are still listed in the gate report as notes.
+max_newly_failing_cases: 5
+
 adapter:
   base_url: https://pomelo-8.codewithpeter.com  # team's real Coolify deployment
   timeout_s: 90   # cold LLM calls (Groq -> Gemini fallback) can be slow

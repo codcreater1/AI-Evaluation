@@ -112,3 +112,15 @@ def test_render_markdown_marks_pass_header_when_clean():
 
     md = gate._render_markdown(report, FakeConfig(), candidate)
     assert "AI Evaluation Passed" in md
+
+
+def test_step_summary_is_written_when_running_in_github_actions(tmp_path, monkeypatch):
+    summary = tmp_path / "summary.md"
+    monkeypatch.setenv("GITHUB_STEP_SUMMARY", str(summary))
+    gate._write_step_summary("### hello")
+    assert "### hello" in summary.read_text(encoding="utf-8")
+
+
+def test_step_summary_is_a_noop_outside_github_actions(monkeypatch):
+    monkeypatch.delenv("GITHUB_STEP_SUMMARY", raising=False)
+    gate._write_step_summary("### hello")  # must not raise

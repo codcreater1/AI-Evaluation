@@ -32,6 +32,9 @@ class ComparisonReport(BaseModel):
     newly_passing_case_ids: list[str] = Field(default_factory=list)
     overall_pass: bool = True
     failure_reasons: list[str] = Field(default_factory=list)
+    # Informational only - things worth seeing that did not fail the gate
+    # (e.g. case churn within the configured tolerance).
+    notes: list[str] = Field(default_factory=list)
 
     @property
     def regressions(self) -> list[MetricComparison]:
@@ -59,6 +62,7 @@ def compare(
     baseline: Experiment,
     candidate: Experiment,
     thresholds: dict[str, MetricThreshold] | None = None,
+    max_newly_failing_cases: int = 0,
 ) -> ComparisonReport:
     thresholds = thresholds or {}
     report = ComparisonReport(
@@ -110,12 +114,23 @@ def compare(
         elif baseline_passed is False and candidate_passed is True:
             report.newly_passing_case_ids.append(case_id)
 
-    if report.newly_failing_case_ids:
-        report.overall_pass = False
+    failing_count = len(report.newly_failing_case_ids)
+    if failing_count:
         preview = report.newly_failing_case_ids[:5]
-        suffix = "..." if len(report.newly_failing_case_ids) > 5 else ""
-        report.failure_reasons.append(
-            f"{len(report.newly_failing_case_ids)} case(s) newly failing: {preview}{suffix}"
-        )
+        suffix = "..." if failing_count > 5 else ""
+        if failing_count > max_newly_failing_cases:
+            report.overall_pass = False
+            tolerance = (
+                f" (tolerance: {max_newly_failing_cases})" if max_newly_failing_cases else ""
+            )
+            report.failure_reasons.append(
+                f"{failing_count} case(s) newly failing{tolerance}: {preview}{suffix}"
+            )
+        else:
+            report.notes.append(
+                f"{failing_count} case(s) newly failing, within the configured tolerance of "
+                f"{max_newly_failing_cases} for this system ({len(report.newly_passing_case_ids)} "
+                f"newly passing): {preview}{suffix}"
+            )
 
     return report

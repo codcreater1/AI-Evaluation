@@ -53,7 +53,8 @@ def compare_experiments(baseline_id: str, candidate_id: str) -> dict:
         metric: threshold if isinstance(threshold, MetricThreshold) else MetricThreshold(**threshold)
         for metric, threshold in raw_thresholds.items()
     }
-    report = compare(baseline, candidate, thresholds)
+    max_newly_failing = int(candidate.config.get("max_newly_failing_cases", 0) or 0)
+    report = compare(baseline, candidate, thresholds, max_newly_failing_cases=max_newly_failing)
     return report.model_dump(mode="json")
 
 

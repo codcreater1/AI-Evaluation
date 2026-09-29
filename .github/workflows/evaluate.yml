@@ -42,12 +42,20 @@ on:
       - "app/**"
       - "config/**"
       - "datasets/**"
+      - "scripts/**"
+      - "tests/**"
+      - "pyproject.toml"
+      - ".github/workflows/evaluate.yml"
   push:
     branches: [main]
     paths:
       - "app/**"
       - "config/**"
       - "datasets/**"
+      - "scripts/**"
+      - "tests/**"
+      - "pyproject.toml"
+      - ".github/workflows/evaluate.yml"
 
 jobs:
   test:

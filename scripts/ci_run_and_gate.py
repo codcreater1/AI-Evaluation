@@ -29,6 +29,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -82,6 +83,8 @@ def _render_markdown(report, config: ExperimentConfig, candidate: Experiment) ->
         parts += ["", f"**Newly passing cases:** {', '.join(report.newly_passing_case_ids)}"]
     if report.failure_reasons:
         parts += ["", "**Why:**"] + [f"- {r}" for r in report.failure_reasons]
+    if report.notes:
+        parts += ["", "**Notes (did not fail the gate):**"] + [f"- {n}" for n in report.notes]
     parts += ["", f"_{candidate.case_count} cases, experiment `{candidate.id}`_"]
     return "\n".join(parts)
 
@@ -109,7 +112,9 @@ async def main() -> int:
 
     baseline = _load_baseline(args.baseline)
     thresholds: dict[str, MetricThreshold] = config.thresholds
-    report = compare(baseline, candidate, thresholds)
+    report = compare(
+        baseline, candidate, thresholds, max_newly_failing_cases=config.max_newly_failing_cases
+    )
 
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(candidate.model_dump_json(indent=2), encoding="utf-8")
@@ -119,7 +124,19 @@ async def main() -> int:
     args.out_md.write_text(markdown, encoding="utf-8")
 
     print(markdown)
+    _write_step_summary(markdown)
     return 0 if report.overall_pass else 1
+
+
+def _write_step_summary(markdown: str) -> None:
+    """Also show the result on the run's own Summary page, so nobody has to
+    dig through a 7-minute step log to find out why a gate failed. No-op
+    outside GitHub Actions."""
+    summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
+    if not summary_path:
+        return
+    with open(summary_path, "a", encoding="utf-8") as fh:
+        fh.write(markdown + "\n\n")
 
 
 if __name__ == "__main__":
