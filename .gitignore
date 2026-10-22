@@ -10,3 +10,9 @@ venv/
 experiments/*.json
 !experiments/.gitkeep
 .DS_Store
+.idea/
+.vscode/
+desktop.ini
+Thumbs.db
+.coverage
+htmlcov/
