@@ -60,3 +60,9 @@ experiment/run metadata does.
 - `app/integrations/langfuse_client.py`: works with real Langfuse keys in
   `.env`; degrades to inert no-ops without them, so tests never need network
   access or credentials.
+
+## Testing
+
+Unit tests live in `tests/` and cover adapters, evaluators, the dataset manager,
+schemas, regression comparison and the CI gate. Run them with `pytest`; LLM-judge
+evaluators are exercised with stubbed responses so no network access is needed.
